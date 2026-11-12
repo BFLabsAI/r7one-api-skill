@@ -1,0 +1,1958 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "R7 One: API pública de integração",
+    "version": "1.0.0",
+    "description": "Webhooks para conectar outros sistemas e agentes de IA ao R7 One (CRM da R7 Treinamentos).\n\nEntrada: POST /webhooks/leads/{token} (leads), POST /webhooks/track (landing pages), POST /webhooks/calls/{token} (chamadas).\nSaída: eventos assinados enviados ao seu servidor (seção webhooks).\n\nNão inclui a API autenticada interna do app (front-end ↔ back-end), que não é pública. Documentação em texto e exemplos: pasta references/ da skill r7-api."
+  },
+  "servers": [
+    {
+      "url": "https://api.r7one.app",
+      "description": "Produção"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Entrada"
+    },
+    {
+      "name": "Saída"
+    }
+  ],
+  "paths": {
+    "/webhooks/leads/{token}": {
+      "post": {
+        "tags": [
+          "Entrada"
+        ],
+        "summary": "Webhook universal de leads",
+        "operationId": "postLeadWebhook",
+        "description": "Cria/atualiza lead e oportunidade. Com ?test=1 apenas simula e devolve os campos lidos.",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 20
+            },
+            "description": "Token secreto da empresa."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": "Reenviar a mesma chave não duplica o cadastro. Mesma chave com payload diferente: 409 idempotency_conflict."
+          },
+          {
+            "name": "test",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "1"
+              ]
+            },
+            "description": "1 = simulação, não cria nada."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lead registrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadWebhookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corpo não é objeto JSON, ou sem e-mail/telefone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Token inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "idempotency_conflict ou identity_conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Empresa em implantação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Falha interna.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      },
+      "get": {
+        "tags": [
+          "Entrada"
+        ],
+        "summary": "Só responde 405 (ferramentas testam a URL com GET)",
+        "operationId": "getLeadWebhook",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 20
+            },
+            "description": "Token secreto da empresa."
+          }
+        ],
+        "responses": {
+          "405": {
+            "description": "Use POST com corpo JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/webhooks/track": {
+      "post": {
+        "tags": [
+          "Entrada"
+        ],
+        "summary": "Rastreio de landing page (visita ou cadastro)",
+        "operationId": "postTrack",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": "Reenviar a mesma chave não duplica o cadastro. Mesma chave com payload diferente: 409 idempotency_conflict."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "alt_phone_added": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Sem e-mail/telefone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Landing inexistente ou não publicada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflito de idempotência/identidade.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Corpo inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Empresa em implantação.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Falha interna.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/webhooks/calls/{token}": {
+      "post": {
+        "tags": [
+          "Entrada"
+        ],
+        "summary": "Webhook de chamadas/reuniões (R7 Calls)",
+        "operationId": "postCallsWebhook",
+        "description": "Token emitido pelo time do R7 One. Assinatura opcional por empresa: X-Signature (sha256=<hex> do corpo bruto, ou de 'timestamp.corpo' com X-Timestamp).",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 20
+            },
+            "description": "Token secreto da empresa."
+          },
+          {
+            "name": "X-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CallsWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recebido (ou duplicado: {\"duplicate\": true})."
+          },
+          "400": {
+            "description": "Sem event ou sem identificador da reunião.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Assinatura inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corpo acima de 2 MB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "webhooks": {
+    "leadCreated": {
+      "post": {
+        "summary": "lead.created",
+        "description": "Um lead novo entrou na empresa. Assinado com HMAC-SHA256: cabeçalhos X-Rastreia-Signature (sha256=<hex> sobre '<timestamp>.' + corpo bruto), X-Rastreia-Timestamp, X-Rastreia-Event e X-Rastreia-Delivery. Responda 2xx em até 5 s.",
+        "parameters": [
+          {
+            "name": "X-Rastreia-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event",
+                  "event_id",
+                  "timestamp",
+                  "organization",
+                  "data"
+                ],
+                "properties": {
+                  "event": {
+                    "const": "lead.created"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^evt_",
+                    "description": "Único por evento."
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "organization": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/LeadCreatedData"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Recebido."
+          },
+          "5XX": {
+            "description": "Será repetido (até 8 tentativas)."
+          }
+        }
+      }
+    },
+    "dealCreated": {
+      "post": {
+        "summary": "deal.created",
+        "description": "Uma oportunidade foi criada. Assinado com HMAC-SHA256: cabeçalhos X-Rastreia-Signature (sha256=<hex> sobre '<timestamp>.' + corpo bruto), X-Rastreia-Timestamp, X-Rastreia-Event e X-Rastreia-Delivery. Responda 2xx em até 5 s.",
+        "parameters": [
+          {
+            "name": "X-Rastreia-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event",
+                  "event_id",
+                  "timestamp",
+                  "organization",
+                  "data"
+                ],
+                "properties": {
+                  "event": {
+                    "const": "deal.created"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^evt_",
+                    "description": "Único por evento."
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "organization": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/DealEventData"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Recebido."
+          },
+          "5XX": {
+            "description": "Será repetido (até 8 tentativas)."
+          }
+        }
+      }
+    },
+    "dealWon": {
+      "post": {
+        "summary": "deal.won",
+        "description": "Uma oportunidade foi ganha (inclui negotiation, payment, company). Assinado com HMAC-SHA256: cabeçalhos X-Rastreia-Signature (sha256=<hex> sobre '<timestamp>.' + corpo bruto), X-Rastreia-Timestamp, X-Rastreia-Event e X-Rastreia-Delivery. Responda 2xx em até 5 s.",
+        "parameters": [
+          {
+            "name": "X-Rastreia-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event",
+                  "event_id",
+                  "timestamp",
+                  "organization",
+                  "data"
+                ],
+                "properties": {
+                  "event": {
+                    "const": "deal.won"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^evt_",
+                    "description": "Único por evento."
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "organization": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/DealEventData"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Recebido."
+          },
+          "5XX": {
+            "description": "Será repetido (até 8 tentativas)."
+          }
+        }
+      }
+    },
+    "dealLost": {
+      "post": {
+        "summary": "deal.lost",
+        "description": "Uma oportunidade foi perdida (loss_reason preenchido). Emitido pelo servidor; não listado na tela de configuração. Assinado com HMAC-SHA256: cabeçalhos X-Rastreia-Signature (sha256=<hex> sobre '<timestamp>.' + corpo bruto), X-Rastreia-Timestamp, X-Rastreia-Event e X-Rastreia-Delivery. Responda 2xx em até 5 s.",
+        "parameters": [
+          {
+            "name": "X-Rastreia-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event",
+                  "event_id",
+                  "timestamp",
+                  "organization",
+                  "data"
+                ],
+                "properties": {
+                  "event": {
+                    "const": "deal.lost"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^evt_",
+                    "description": "Único por evento."
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "organization": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/DealEventData"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Recebido."
+          },
+          "5XX": {
+            "description": "Será repetido (até 8 tentativas)."
+          }
+        }
+      }
+    },
+    "appointmentScheduled": {
+      "post": {
+        "summary": "appointment.scheduled",
+        "description": "Uma reunião foi agendada. Assinado com HMAC-SHA256: cabeçalhos X-Rastreia-Signature (sha256=<hex> sobre '<timestamp>.' + corpo bruto), X-Rastreia-Timestamp, X-Rastreia-Event e X-Rastreia-Delivery. Responda 2xx em até 5 s.",
+        "parameters": [
+          {
+            "name": "X-Rastreia-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event",
+                  "event_id",
+                  "timestamp",
+                  "organization",
+                  "data"
+                ],
+                "properties": {
+                  "event": {
+                    "const": "appointment.scheduled"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^evt_",
+                    "description": "Único por evento."
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "organization": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/AppointmentEventData"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Recebido."
+          },
+          "5XX": {
+            "description": "Será repetido (até 8 tentativas)."
+          }
+        }
+      }
+    },
+    "appointmentCompleted": {
+      "post": {
+        "summary": "appointment.completed",
+        "description": "Uma reunião foi marcada como realizada. Assinado com HMAC-SHA256: cabeçalhos X-Rastreia-Signature (sha256=<hex> sobre '<timestamp>.' + corpo bruto), X-Rastreia-Timestamp, X-Rastreia-Event e X-Rastreia-Delivery. Responda 2xx em até 5 s.",
+        "parameters": [
+          {
+            "name": "X-Rastreia-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Rastreia-Delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event",
+                  "event_id",
+                  "timestamp",
+                  "organization",
+                  "data"
+                ],
+                "properties": {
+                  "event": {
+                    "const": "appointment.completed"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^evt_",
+                    "description": "Único por evento."
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "organization": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/AppointmentEventData"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Recebido."
+          },
+          "5XX": {
+            "description": "Será repetido (até 8 tentativas)."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "detail": {}
+        }
+      },
+      "LeadWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Telefone (aliases: telefone, whatsapp, celular). Normalizado para E.164. Obrigatório se não houver e-mail válido."
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "E-mail (alias: e-mail). Formato inválido é descartado. Obrigatório se não houver telefone."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Nome (aliases: nome, full_name)."
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Mensagem (aliases: mensagem, observacao)."
+          },
+          "utm_source": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Aliases: utm_source_platform, utm_source_plataform; fallback: origem."
+          },
+          "utm_medium": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "utm_campaign": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Fallback: origem."
+          },
+          "utm_term": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "utm_content": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "utm_audience": {
+            "type": "string",
+            "description": "Guardado em extra.utm_audience."
+          },
+          "referrer": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "landing_path": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "landing_page_title": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Alias: landing_page."
+          },
+          "gclid": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "fbclid": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "device": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "channel": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Alias: canal. Apenas dica para o log; não define a origem."
+          },
+          "consultor": {
+            "type": "string",
+            "description": "Alias: owner_email. Guardado em extra.consultor."
+          },
+          "ad_id": {
+            "description": "Id numérico do anúncio Meta (até 32 dígitos). Valores não numéricos são ignorados.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "adset_id": {
+            "description": "Id numérico do conjunto de anúncios Meta.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "campaign_id": {
+            "description": "Id numérico da campanha Meta.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "extra": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Campos livres. Chaves desconhecidas no topo do corpo também vão para extra."
+          }
+        },
+        "additionalProperties": true,
+        "anyOf": [
+          {
+            "required": [
+              "phone"
+            ]
+          },
+          {
+            "required": [
+              "email"
+            ]
+          }
+        ],
+        "description": "É obrigatório informar telefone OU e-mail válido (anyOf). Também são aceitos os apelidos em português listados em cada campo."
+      },
+      "LeadWebhookResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "lead_id"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "lead_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "received": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "alt_phone_added": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LeadWebhookTestResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "test": {
+            "type": "boolean"
+          },
+          "parsed": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "TrackRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "event"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "event": {
+            "enum": [
+              "view",
+              "lead"
+            ]
+          },
+          "tracking": {
+            "type": "object",
+            "properties": {
+              "utm_source": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "utm_medium": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "utm_campaign": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "utm_term": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "utm_content": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "referrer": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "landing_path": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "gclid": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "fbclid": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "device": {
+                "type": "string",
+                "maxLength": 50
+              }
+            }
+          },
+          "lead": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Obrigatório quando event = lead; precisa de e-mail ou telefone.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 200
+              },
+              "phone": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            }
+          }
+        }
+      },
+      "CallsWebhookRequest": {
+        "type": "object",
+        "required": [
+          "event"
+        ],
+        "additionalProperties": true,
+        "description": "Exige event e um identificador da reunião (call.id ou meeting.code).",
+        "properties": {
+          "event": {
+            "type": "string",
+            "description": "call.completed, meeting.ended, transcript.ready, ping..."
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "call": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "direction": {
+                "enum": [
+                  "outbound",
+                  "inbound"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "answered",
+                  "no_answer",
+                  "busy",
+                  "voicemail",
+                  "failed",
+                  "canceled"
+                ]
+              },
+              "duration_seconds": {
+                "type": "integer"
+              }
+            }
+          },
+          "meeting": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "external_id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "external_id": {
+                "type": "string"
+              }
+            }
+          },
+          "lead": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "agent": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "transcription": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "status": {
+                "enum": [
+                  "processing",
+                  "completed",
+                  "failed"
+                ]
+              },
+              "language": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "segments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "speaker": {
+                      "type": "string"
+                    },
+                    "start": {
+                      "type": "number"
+                    },
+                    "end": {
+                      "type": "number"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "recording": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        }
+      },
+      "LeadCreatedData": {
+        "type": "object",
+        "properties": {
+          "lead": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "phone": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "email": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "funil_captura": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "tracking": {
+            "type": "object",
+            "properties": {
+              "utm_source": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "utm_medium": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "utm_campaign": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "utm_content": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "DealEventData": {
+        "type": "object",
+        "properties": {
+          "deal": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string"
+              },
+              "value": {
+                "type": "number"
+              },
+              "amount": {
+                "type": "number"
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "closed_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "created_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "loss_reason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "lead": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "phone": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "email": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "pipeline": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "stage": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "attribution": {
+            "type": "object",
+            "properties": {
+              "sdr": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "email": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "closer": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "email": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                },
+                "unit_price": {
+                  "type": "number"
+                },
+                "total_price": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "negotiation": {
+            "description": "Só em deal.won.",
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment": {
+            "description": "Só em deal.won; null sem forma de pagamento.",
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "company": {
+            "description": "Só em deal.won; empresas em modo B2B.",
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "b2b_company_pending": {
+            "type": "boolean",
+            "description": "Só em deal.won."
+          }
+        }
+      },
+      "AppointmentEventData": {
+        "type": "object",
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lead_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deal_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "agendada",
+              "realizada",
+              "cancelada",
+              "nao_compareceu"
+            ]
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meeting_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appointment": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "consultant": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "email": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "closer_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sdr_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lead": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "phone": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "email": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "company": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "deal": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "pipeline_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "stage_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "number"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
