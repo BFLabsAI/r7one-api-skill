@@ -136,6 +136,6 @@ Estratégia de retry: em `5xx`, timeout ou erro de rede, repita com **a mesma `I
 
 ## Limites
 
-- **Tamanho do corpo:** hoje **não há limite** no servidor (testado com 1, 5 e 20 MB: todos aceitos). Envie corpos pequenos (um lead tem poucos KB). Um teto de **1 MiB** está em implementação (Issue #879 do R7 One); depois dele, corpo maior responderá `413 {"error":"payload_too_large"}`.
-- **Taxa:** hoje **não há rate limit** nesta rota (300 requisições em 1,5 s foram todas aceitas). Mantenha um ritmo razoável (poucas requisições por segundo por token) e use `Idempotency-Key`. O rate limit está em implementação (Issue #880); depois dele, excesso responderá `429` com `Retry-After`. Respeite sempre o `Retry-After`.
+- **Tamanho do corpo:** até **1 MiB** (1 048 576 bytes). Acima disso: `413 {"error":"payload_too_large"}`, antes de validar o token. Um lead real tem poucos KB. (Antes do PR #884 não havia teto: testei 1, 5 e 20 MB e todos foram aceitos.)
+- **Taxa:** **300 req/min por IP** e **600 req/min por token**; acima disso `429 {"error":"rate_limited"}` com `Retry-After` (segundos). **Respeite sempre o `Retry-After`** e reenvie depois; para importação em lote, distribua o envio e use `Idempotency-Key`. Token inexistente ou desativado responde `404` e conta num freio à parte: **20 respostas 404/min por IP**, depois `429`. Não insista em loop com token errado. A contagem é por processo do servidor (pode chegar a 2x durante um deploy).
 - A resposta só volta depois que lead, oportunidade e atividade inicial são gravados (tudo na mesma transação); se algo falhar, nada fica pela metade.

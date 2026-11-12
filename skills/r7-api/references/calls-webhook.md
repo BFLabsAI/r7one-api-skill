@@ -43,7 +43,7 @@ Aceita dois formatos. Obrigatórios: `event` e um identificador da reunião (`ca
 
 - Resposta de sucesso: **`202 Accepted`** quando o evento é aceito para processamento; `200` em `ping` (teste de conexão) e em reenvio duplicado (`{"duplicate": true}`). Trate qualquer `2xx` como recebido.
 - Eventos que disparam a conferência da reunião: `call.completed`, `meeting.ended`, `transcript.ready`. Outros eventos são registrados como ignorados.
-- Corpo de até **2 MB**; acima disso `413 {"error":"payload_too_large"}`.
+- Corpo de até **2 MiB**; acima disso `413 {"error":"payload_too_large"}`. Vale também o rate limit de entrada: **300/min por IP** e **600/min por token**; acima disso `429` com `Retry-After`, que você deve respeitar (trate como `5xx`: reenvie depois).
 - **Idempotência:** reenviar o mesmo evento responde `200 {"duplicate": true}` sem reprocessar. A chave é `event_id` (quando existe) ou uma combinação de reunião, evento, status da transcrição e `sent_at`.
 - `2xx` = recebido (não repetir). `5xx` ou demora = repetir com espera crescente (1 min, 5 min, 30 min, 2 h, até 24 h). `404`, `400` e `413` não se repetem. `401` = assinatura inválida.
 - O corpo tem dado pessoal (telefone, e-mail, transcrição): o R7 One não grava o corpo em log; use HTTPS e não registre o token.
