@@ -11,7 +11,7 @@ Content-Type: application/json
 
 - `{token}`: um por empresa, **emitido pelo time do R7 One** (não é o mesmo token do webhook de leads). Trate como segredo.
 - Token desconhecido ou desativado: `404 {"error":"not_found"}` (resposta uniforme).
-- **Assinatura opcional por empresa.** Se a empresa tiver segredo, envie `X-Signature: sha256=<hex>` (ou só o hex) com o HMAC-SHA256 do **corpo bruto**; ou, se enviar também `X-Timestamp` (tolerância de ±5 min), do texto `timestamp + "." + corpo`. Sem segredo configurado, a assinatura não é exigida. Atenção: este esquema (`X-Signature`/`X-Timestamp`) é **diferente** do dos webhooks de saída (`X-Rastreia-*`).
+- **Assinatura opcional por empresa** (testada: sem assinatura `401`, assinatura errada `401`, hex com ou sem `sha256=` `2xx`, timestamp com 1 h de diferença `401`). Se a empresa tiver segredo, envie `X-Signature: sha256=<hex>` (ou só o hex) com o HMAC-SHA256 do **corpo bruto**; ou, se enviar também `X-Timestamp` (tolerância de ±5 min), do texto `timestamp + "." + corpo`. Sem segredo configurado, a assinatura não é exigida. Atenção: este esquema (`X-Signature`/`X-Timestamp`) é **diferente** do dos webhooks de saída (`X-Rastreia-*`).
 
 ## Corpo
 
@@ -41,7 +41,7 @@ Aceita dois formatos. Obrigatórios: `event` e um identificador da reunião (`ca
 
 ## Comportamento
 
-- `event: "ping"` responde `200` (teste de conexão).
+- Resposta de sucesso: **`202 Accepted`** quando o evento é aceito para processamento; `200` em `ping` (teste de conexão) e em reenvio duplicado (`{"duplicate": true}`). Trate qualquer `2xx` como recebido.
 - Eventos que disparam a conferência da reunião: `call.completed`, `meeting.ended`, `transcript.ready`. Outros eventos são registrados como ignorados.
 - Corpo de até **2 MB**; acima disso `413 {"error":"payload_too_large"}`.
 - **Idempotência:** reenviar o mesmo evento responde `200 {"duplicate": true}` sem reprocessar. A chave é `event_id` (quando existe) ou uma combinação de reunião, evento, status da transcrição e `sent_at`.
@@ -49,4 +49,3 @@ Aceita dois formatos. Obrigatórios: `event` e um identificador da reunião (`ca
 - O corpo tem dado pessoal (telefone, e-mail, transcrição): o R7 One não grava o corpo em log; use HTTPS e não registre o token.
 - O vínculo com a reunião usa o identificador enviado: `call.id` (= código da reunião no R7 One) ou `metadata.external_id` (= id do agendamento no R7 One, quando você o tiver). Sem vínculo possível, o aviso fica registrado como "recebido, aguardando processamento".
 
-Não verificado: formato exato de resposta de sucesso além de `200`; confirme em um `ping` com o seu token.

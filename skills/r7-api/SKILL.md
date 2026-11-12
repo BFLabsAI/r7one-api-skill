@@ -61,8 +61,9 @@ Scripts prontos em `scripts/`: `send_lead.py` (envia ou simula um lead), `verify
 
 Gerada em 2026-11-12 contra o código do R7 One e **testada de ponta a ponta** numa instância local isolada (clone descartável do banco de teste, sem credenciais de produção):
 
-- **94 verificações de caixa-preta** passaram: webhook de leads (aliases, limites, idempotência, deduplicação, conflitos, CORS, 423), rastreio de landing, webhook de chamadas (incl. 2 MB e duplicado), login/refresh/logout, CRUD de webhooks de saída, bloqueio SSRF, entrega assinada de `lead.created`, `deal.created`, `deal.won`, `appointment.scheduled` e `appointment.completed` (assinatura conferida com os scripts desta skill), retentativa em `5xx` e falha permanente em `4xx`.
-- **121 testes do próprio R7 One** para essas rotas passaram.
-- Smoke em todas as 723 operações da API (incluindo a interna): nenhuma travou; 2 devolveram `500` em casos de borda (reportados ao time).
+- **119 verificações de caixa-preta** passaram: webhook de leads (aliases, limites de campo, idempotência, deduplicação, conflitos, CORS, 423), rastreio de landing, webhook de chamadas (2 MB, duplicado e **assinatura**), login/refresh/logout (incl. rate limit do login), CRUD de webhooks de saída, bloqueio SSRF, entrega assinada de **`lead.created`, `deal.created`, `deal.stage_changed`, `deal.won`, `deal.lost`, `negotiation.opened|updated|cancelled`, `appointment.scheduled` e `appointment.completed`** (assinatura conferida com os scripts desta skill), `Retry-After`, 5xx com **8 tentativas até falha definitiva** e 4xx como falha permanente.
+- **Testes do próprio R7 One** para essas rotas e para `funnel.*` passaram (121 e 39 em duas rodadas).
+- Smoke em todas as 723 operações da API (incluindo a interna): nenhuma travou; 2 devolveram `500` em casos de borda (já em Issues #859 e #860).
+- **Achados abertos** (Epic #878): sem limite de tamanho de corpo e sem rate limit nas rotas públicas de entrada (ver `known-issues.md`).
 
-Em **produção** só verifiquei ao vivo as respostas de erro das rotas públicas (token inválido, GET, JSON inválido, bloqueio de User-Agent), sem envios reais. Se algo divergir, vale o servidor. Sem limite de taxa documentado nas rotas públicas.
+Em **produção** só verifiquei ao vivo as respostas de erro das rotas públicas (token inválido, GET, JSON inválido, bloqueio de User-Agent), sem envios reais. Se algo divergir, vale o servidor.

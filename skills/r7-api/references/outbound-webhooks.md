@@ -84,7 +84,7 @@ Os dois scripts têm `--selftest` com um vetor gerado pelo código do próprio R
 
 - Responda **2xx em até 5 segundos**. Processe de forma assíncrona (enfileire e responda).
 - **Sucesso** = qualquer `2xx`. **Retenta** em: timeout (5 s), erro de conexão, `429` e `5xx`. Qualquer outro `4xx` é **falha permanente** (não retenta).
-- Até **8 tentativas** com espera exponencial a partir de 5 s (5, 10, 20... até 1 h) com jitter. Se você responder `429` ou `503` com `Retry-After`, o R7 One espera pelo menos esse tempo (até 24 h).
+- Até **8 tentativas** (testado: 8 chamadas ao destino e depois a entrega fica como falha definitiva) com espera exponencial e jitter. Medido: ~4 s, ~10 s, ~23 s, ~37 s, ~83 s, ~188 s, ~310 s entre as tentativas (teto de 1 h). Se você responder `429` ou `503` com `Retry-After`, o R7 One espera pelo menos esse tempo (até 24 h).
 - **At-least-once:** o mesmo evento pode chegar mais de uma vez e **fora de ordem**. Deduplique por `X-Rastreia-Delivery` (ou `event_id`) e use os timestamps de `data` para ordenar.
 - Depois de esgotar as tentativas a entrega fica como falha e pode ser reenviada manualmente pelo app (ou pela API de gerenciamento).
 
@@ -102,7 +102,9 @@ Os dois scripts têm `--selftest` com um vetor gerado pelo código do próprio R
 
 ### Também emitidos pelo servidor
 
-O servidor também gera os eventos abaixo; eles são entregues se o nome estiver na lista `events` do webhook, mas a tela de configuração hoje **não os lista** (cadastre-os pela API de gerenciamento; não verifiquei o comportamento em produção): `deal.lost`, `deal.stage_changed`, `negotiation.opened`, `negotiation.updated`, `negotiation.cancelled`, `funnel.submission.completed`, `funnel.qualified`. O evento `ping` é só do botão de teste.
+O servidor também gera os eventos abaixo e os entrega se o nome estiver na lista `events` do webhook, mas a tela de configuração hoje **não os lista**: cadastre-os pela API de gerenciamento. **Testados de ponta a ponta** (entrega assinada, payload conferido): `deal.lost`, `deal.stage_changed`, `negotiation.opened`, `negotiation.updated`, `negotiation.cancelled`. `funnel.submission.completed` e `funnel.qualified` são cobertos pelos testes automatizados do projeto (não os reproduzi na caixa-preta). O evento `ping` é só do botão de teste.
+
+> A API de gerenciamento **não valida o nome do evento**: cadastrar `lead.creaetd` (erro de digitação) retorna `201` e o webhook simplesmente nunca dispara. Confira os nomes.
 
 ### `data` por evento (formato real do código)
 
@@ -128,7 +130,7 @@ Os exemplos usam valores fictícios.
  "products": [{"product_id": "<uuid>", "name": "Mentoria", "quantity": 1, "unit_price": 15000.0, "total_price": 15000.0}]}
 ```
 
-`products` exclui itens bônus. `loss_reason` só vem preenchido em `deal.lost`. Em **`deal.won`** o objeto ganha também:
+`products` exclui itens bônus. `loss_reason` só vem preenchido em `deal.lost` e é um **motivo do catálogo da empresa** (texto livre cadastrado fora do catálogo chega como "Outro motivo"). Em **`deal.won`** o objeto ganha também:
 
 ```json
 {"negotiation": {"id": "<uuid>", "deal_id": "<uuid>", "state": "won", "opened_at": "...", "origin": "...",
@@ -185,4 +187,4 @@ curl -X POST "https://api.r7one.app/api/v1/outbound-webhooks" \
   -d '{"name":"Meu CRM","target_url":"https://meu-servidor.com/r7-webhook","events":["lead.created","deal.won"]}'
 ```
 
-A resposta traz o `secret_key` (guarde-o: é a chave para verificar a assinatura). Esta API autenticada é a mesma usada pelo app; os campos acima foram conferidos no código, mas não testei contra produção com credenciais.
+A resposta traz o `secret_key` (guarde-o: é a chave para verificar a assinatura). Esta API autenticada é a mesma usada pelo app. Criar, listar, detalhar, alterar, testar (ping), ver logs e remover foram testados numa instância isolada; em produção não testei com credenciais reais.

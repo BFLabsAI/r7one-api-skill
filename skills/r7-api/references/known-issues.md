@@ -25,7 +25,10 @@ Conferidas contra o código do R7 One em 2026-11-12. Quando a página **Document
 - **E-mail inválido é descartado em silêncio** no webhook de leads (sem erro). Se for o único identificador, a resposta é `400`.
 - **`channel`/`canal` não define a origem** do lead; só aparece no log. Use `utm_source` e `utm_medium`.
 - **Empresa em implantação** responde `423` a capturas (webhook de leads e `event: "lead"` do rastreio).
-- **Sem limite de taxa documentado** nas rotas públicas: envie com moderação e use `Idempotency-Key` nos retries.
+- **Sem limite de taxa nem de tamanho de corpo nas rotas públicas de entrada** (confirmado em teste: 300 req em 1,5 s e corpos de 20 MB aceitos). Em implementação (Issues #879 e #880). Até lá: corpos pequenos, ritmo moderado, `Idempotency-Key` nos retries. O login (`/auth/login`) já limita: 60 tentativas por IP, depois `429`.
+- **A API de gerenciamento de webhooks de saída não valida o nome do evento** (`201` para evento inexistente): confira a grafia.
+- **`loss_reason`** de `deal.lost` é um catálogo da empresa; texto livre vira "Outro motivo".
+- **Webhook de chamadas responde `202`** (aceito para processamento), não `200`, para eventos reais; `200` só em `ping` e duplicado.
 
 ## O que esta skill não cobre (de propósito)
 

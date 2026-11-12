@@ -134,7 +134,8 @@ Script pronto: `scripts/send_lead.py --test ...` (token só por variável de amb
 
 Estratégia de retry: em `5xx`, timeout ou erro de rede, repita com **a mesma `Idempotency-Key`** (assim não duplica). Não repita `400`, `404`, `405`, `409` nem `423` sem mudar algo.
 
-## Limites e o que não foi verificado
+## Limites
 
-- Não há limite de taxa nem de tamanho de corpo documentado para esta rota (não verificado). Envie um lead por requisição; para cargas grandes, use a importação do app.
+- **Tamanho do corpo:** hoje **não há limite** no servidor (testado com 1, 5 e 20 MB: todos aceitos). Envie corpos pequenos (um lead tem poucos KB). Um teto de **1 MiB** está em implementação (Issue #879 do R7 One); depois dele, corpo maior responderá `413 {"error":"payload_too_large"}`.
+- **Taxa:** hoje **não há rate limit** nesta rota (300 requisições em 1,5 s foram todas aceitas). Mantenha um ritmo razoável (poucas requisições por segundo por token) e use `Idempotency-Key`. O rate limit está em implementação (Issue #880); depois dele, excesso responderá `429` com `Retry-After`. Respeite sempre o `Retry-After`.
 - A resposta só volta depois que lead, oportunidade e atividade inicial são gravados (tudo na mesma transação); se algo falhar, nada fica pela metade.
